@@ -2,6 +2,17 @@ name: Publish dashboard
 
 # Builds data.generated.js and publishes the site to GitHub Pages.
 #
+# Triggered by pushes to results/, NOT on a schedule. The push from test-infra
+# is the exact completion signal; a cron would be a guess. GitHub's scheduler
+# drifts badly in practice — the E2E workflows are scheduled at 07:00/07:15 UTC
+# but observed starting anywhere from 07:10 to 07:48, and a job can run for up
+# to its 60-minute timeout — so any fixed publish time would either fire before
+# the data landed or leave the site stale.
+#
+# Because test-infra pushes daily, a failed deploy self-heals on the next
+# push. The case neither trigger covers is test-infra silently stopping; the
+# freshness indicator on the page surfaces that instead.
+#
 # data.generated.js is deliberately NOT committed: it is rebuilt from results/
 # on every push, so committing it would add a rewritten copy of the entire
 # dataset to git history on every single run. Pages artifacts live outside git

@@ -27,6 +27,12 @@ header { padding: 20px 24px 12px; border-bottom: 1px solid var(--line); }
 h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
 header p { margin: 0; color: var(--muted); font-size: 13px; }
 header a { color: var(--accent); }
+#freshness { margin-top: 8px; font-size: 12px; color: var(--muted); }
+#freshness .stale {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 12px; font-weight: 600;
+  background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn);
+}
 main { padding: 16px 24px 48px; max-width: 1400px; }
 .filters {
   display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
@@ -108,13 +114,13 @@ a { color: var(--accent); }
     <a href="https://github.com/drasi-project/test-infra">drasi-project/test-infra</a>.
     Stored in <a href="https://github.com/drasi-project/test-results">drasi-project/test-results</a>.
   </p>
+  <div id="freshness"></div>
 </header>
 <main>
   <div class="filters">
     <div class="filter"><label for="f-scenario">Scenario</label><select id="f-scenario"></select></div>
     <div class="filter"><label for="f-variant">Variant</label><select id="f-variant"></select></div>
     <div class="filter"><label for="f-target">Target</label><select id="f-target"></select></div>
-    <div class="filter"><label for="f-transport">Transport</label><select id="f-transport"></select></div>
     <div class="filter"><label for="f-reaction">Reaction</label><select id="f-reaction"></select></div>
     <div class="filter"><label for="f-range">Range</label>
       <select id="f-range">
@@ -148,7 +154,12 @@ a { color: var(--accent); }
 "use strict";
 
 const PALETTE = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#c026d3", "#65a30d"];
-const DIMS = ["scenario", "variant", "target", "transport", "reaction"];
+// Filterable dimensions. `transport` is intentionally absent: it is 1:1 with
+// `variant` (each transport maps to exactly one variant), so a dropdown for it
+// could never produce a view the Variant filter can't. It stays in the data as
+// a queryable field. Add it back here — plus a <select id="f-transport"> — if
+// variants ever multiply within one transport.
+const DIMS = ["scenario", "variant", "target", "reaction"];
 const ALL = "__all__";
 // data.generated.js declares `const data` / `const meta`. Top-level `const`
 // does NOT become a property of window, so these must be referenced directly.
@@ -544,7 +555,6 @@ function render() {
   fillSelect("f-scenario", "scenario", state, rows);
   fillSelect("f-variant", "variant", state, rows);
   fillSelect("f-target", "target", state, rows);
-  fillSelect("f-transport", "transport", state, rows);
   fillSelect("f-reaction", "reaction", state, reactionRows);
   document.getElementById("f-range").value = state.range;
   writeState(state);
@@ -600,10 +610,38 @@ document.getElementById("f-reset").addEventListener("click", () => {
 });
 window.addEventListener("hashchange", render);
 
+// The site is rebuilt when results are pushed, so if the pipeline in
+// test-infra breaks the page would otherwise sit here showing stale numbers
+// with no hint anything is wrong. Runs are daily, so silence beyond ~2 days
+// means something needs looking at.
+const STALE_DAYS = 2;
+
+function renderFreshness() {
+  const el = document.getElementById("freshness");
+  if (!rows.length) { el.textContent = ""; return; }
+
+  let newest = 0;
+  rows.forEach(r => { const t = Date.parse(r.ts); if (t > newest) newest = t; });
+  const ageDays = Math.floor((Date.now() - newest) / 86400000);
+  const newestDate = new Date(newest).toISOString().slice(0, 10);
+  const runCount = runRows.length;
+
+  let when = ageDays <= 0 ? "today" : ageDays === 1 ? "yesterday" : ageDays + " days ago";
+  let html = runCount + " runs · latest " + newestDate + " (" + when + ")";
+  if (typeof generatedAt !== "undefined" && generatedAt) {
+    html += " · site built " + generatedAt.slice(0, 10);
+  }
+  if (ageDays > STALE_DAYS) {
+    html += " <span class='stale'>⚠ no new results in " + ageDays + " days</span>";
+  }
+  el.innerHTML = html;
+}
+
 if (!rows.length) {
   document.getElementById("content").innerHTML =
     "<div class='card'><div class='empty'>No results yet. Run <code>python3 generate-results.py</code> to build <code>data.generated.js</code>.</div></div>";
 } else {
+  renderFreshness();
   render();
 }
 </script>
