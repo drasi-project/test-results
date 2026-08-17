@@ -33,6 +33,27 @@ main { padding: 16px 24px 48px; max-width: 1400px; }
   padding: 14px 16px; margin-bottom: 20px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
 }
+#active-filters {
+  display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+  width: 100%; margin-top: 2px; padding-top: 12px;
+  border-top: 1px dashed var(--line); font-size: 12px; color: var(--muted);
+}
+#active-filters.on { display: flex; }
+#active-filters .chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px; border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent); font-weight: 600;
+}
+#active-filters .chip button {
+  all: unset; cursor: pointer; line-height: 1; padding: 0 1px;
+  font-size: 13px; opacity: .75;
+}
+#active-filters .chip button:hover { opacity: 1; }
+#active-filters .count { font-variant-numeric: tabular-nums; }
+#active-filters .clear-all {
+  padding: 2px 8px; font-size: 12px; border-radius: 12px;
+}
 .filter { display: flex; flex-direction: column; gap: 4px; }
 .filter label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 select, button {
@@ -97,6 +118,7 @@ a { color: var(--accent); }
     <div class="filter"><label for="f-reaction">Reaction</label><select id="f-reaction"></select></div>
     <div class="filter"><label for="f-range">Range</label>
       <select id="f-range">
+        <option value="7">Last 7 days</option>
         <option value="30">Last 30 days</option>
         <option value="90">Last 90 days</option>
         <option value="365">Last year</option>
@@ -104,6 +126,7 @@ a { color: var(--accent); }
       </select>
     </div>
     <div class="filter"><label>&nbsp;</label><button id="f-reset">Reset</button></div>
+    <div id="active-filters"></div>
   </div>
 
   <div id="content"></div>
@@ -313,24 +336,43 @@ function drawChart(container, title, subtitle, series, field, unit) {
     svg.appendChild(text);
   });
 
+  // Date ticks: with a short history several fractional positions can land on
+  // the same day, so derive ticks from the distinct dates present and thin
+  // them out rather than slicing the range blindly.
   const span = tMax - tMin;
-  const xTickCount = Math.min(6, Math.max(2, Math.round(plotW / 110)));
-  for (let i = 0; i < xTickCount; i++) {
-    const t = tMin + (span * i) / (xTickCount - 1 || 1);
-    const text = svgEl("text", { class: "axis-text", x: x(t), y: H - 10, "text-anchor": "middle" });
-    text.textContent = new Date(t).toISOString().slice(5, 10);
-    svg.appendChild(text);
+  const maxTicks = Math.min(8, Math.max(2, Math.round(plotW / 90)));
+  const distinctDays = [...new Set(times.map(t => new Date(t).toISOString().slice(0, 10)))].sort();
+  let xTicks;
+  if (distinctDays.length <= maxTicks) {
+    xTicks = distinctDays.map(day => {
+      const dayTimes = times.filter(t => new Date(t).toISOString().slice(0, 10) === day);
+      return { t: dayTimes.reduce((a, b) => a + b, 0) / dayTimes.length, text: day.slice(5) };
+    });
+  } else {
+    const step = Math.max(1, Math.ceil(distinctDays.length / maxTicks));
+    xTicks = [];
+    for (let i = 0; i < distinctDays.length; i += step) {
+      xTicks.push({ t: Date.parse(distinctDays[i] + "T00:00:00Z"), text: distinctDays[i].slice(5) });
+    }
   }
+  xTicks.forEach(tick => {
+    const text = svgEl("text", { class: "axis-text", x: x(tick.t), y: H - 10, "text-anchor": "middle" });
+    text.textContent = tick.text;
+    svg.appendChild(text);
+  });
 
-  // Vertical rule where drasi-server version changes: a step in the line then
-  // lines up visually with the release that caused it.
+  // Vertical rule where the drasi-server build changes: a step in the line
+  // then lines up visually with the version that caused it. This keys off the
+  // version the binary reports, NOT the release tag — the tag is usually the
+  // moving pointer "latest", which never changes.
   const releases = [];
   const byTime = points.slice().sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
-  let lastTag = null;
+  let lastVersion = null;
   byTime.forEach(p => {
-    if (p.server_tag && p.server_tag !== lastTag) {
-      if (lastTag !== null) releases.push({ t: Date.parse(p.ts), tag: p.server_tag });
-      lastTag = p.server_tag;
+    const version = p.server_version;
+    if (version && version !== lastVersion) {
+      if (lastVersion !== null) releases.push({ t: Date.parse(p.ts), tag: version });
+      lastVersion = version;
     }
   });
   releases.forEach(rel => {
@@ -353,7 +395,7 @@ function drawChart(container, title, subtitle, series, field, unit) {
           "<b>" + s.label + "</b><br>" + p.ts.replace("T", " ").replace("Z", " UTC") +
           "<br>" + fmtNum(p[field]) + " " + unit +
           (p.reaction ? "<br>reaction: " + p.reaction : "") +
-          (p.server_tag ? "<br>drasi-server " + p.server_tag : "") +
+          (p.server_version ? "<br>drasi-server " + p.server_version : "") +
           "<br><i>click to open run</i>");
       });
       circle.addEventListener("mouseleave", hideTip);
@@ -435,11 +477,63 @@ function renderTable(data) {
       "<td class='num'>" + fmtNum(row.records_per_sec) + "</td>" +
       "<td>" + tag(row.status) + "</td>" +
       "<td>" + tag(row.determinism) + "</td>" +
-      "<td>" + (row.server_tag || "—") + "</td>" +
+      "<td>" + (row.server_version || "—") + "</td>" +
       "<td>" + (row.url ? "<a href='" + row.url + "' target='_blank' rel='noopener'>#" + row.run_id + "</a>" : "—") +
       " · <a href='" + row.source + "' target='_blank' rel='noopener'>json</a></td>" +
       "</tr>";
   }).join("");
+}
+
+function clearFilter(dim) {
+  const state = readState();
+  if (dim === "range") state.range = "0"; else state[dim] = ALL;
+  writeState(state);
+  render();
+}
+
+// Filters live in the URL hash so views are shareable, which also means a
+// filtered link stays filtered across reloads. This badge makes that obvious
+// instead of leaving someone to wonder where their data went.
+function renderActiveFilters(state, shown, total) {
+  const bar = document.getElementById("active-filters");
+  const active = DIMS.filter(d => state[d] !== ALL);
+  const rangeActive = state.range !== "0";
+
+  if (!active.length && !rangeActive) {
+    bar.className = "";
+    bar.innerHTML = "";
+    return;
+  }
+
+  const rangeText = {
+    "7": "last 7 days", "30": "last 30 days",
+    "90": "last 90 days", "365": "last year"
+  }[state.range] || ("last " + state.range + " days");
+
+  const chips = active.map(dim => {
+    const row = rows.find(r => r[dim] === state[dim]);
+    const text = row ? label(row, dim) : state[dim];
+    return "<span class='chip'>" + dim + ": " + text +
+           "<button data-clear='" + dim + "' title='Clear'>&times;</button></span>";
+  });
+  if (rangeActive) {
+    chips.push("<span class='chip'>" + rangeText +
+               "<button data-clear='range' title='Clear'>&times;</button></span>");
+  }
+
+  bar.className = "on";
+  bar.innerHTML =
+    "<span class='count'>Filtered — showing <b>" + shown + "</b> of <b>" + total + "</b> runs</span>" +
+    chips.join("") +
+    "<button class='clear-all' id='clear-all'>Clear all</button>";
+
+  bar.querySelectorAll("[data-clear]").forEach(button => {
+    button.addEventListener("click", () => clearFilter(button.dataset.clear));
+  });
+  document.getElementById("clear-all").addEventListener("click", () => {
+    history.replaceState(null, "", location.pathname);
+    render();
+  });
 }
 
 function render() {
@@ -457,6 +551,9 @@ function render() {
 
   const filtered = applyFilters(source, state);
   const content = document.getElementById("content");
+
+  // Counts are of runs, not chart rows, so the badge matches the Runs table.
+  renderActiveFilters(state, applyFilters(runRows, state).length, runRows.length);
   content.innerHTML = "";
 
   if (!filtered.length) {

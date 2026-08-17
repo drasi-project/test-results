@@ -64,6 +64,7 @@ def flatten(record, source):
         "variant": dims.get("variant"),
         "target": dims.get("target"),
         "transport": dims.get("transport"),
+        "server_version": versions.get("drasi_server_version"),
         "server_tag": versions.get("drasi_server_tag"),
         "infra_sha": versions.get("test_infra_sha"),
         "status": record.get("status"),

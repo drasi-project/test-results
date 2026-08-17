@@ -28,7 +28,7 @@ scenarios/<scenario>/template.json                        # display metadata
 generate-results.py                                       # results/ -> data.generated.js
 validate-results.py                                       # schema gate (run in CI)
 index.html                                                # the dashboard
-tools/make-seed-data.py                                   # sample data generator
+tools/backfill-from-artifacts.py                          # artifacts -> result records
 ```
 
 One file per CI job, and files are never edited after they land. Because each
@@ -40,80 +40,8 @@ anything else. Dimensions that will grow over time (index config, query
 complexity, workload params) live *inside* the JSON, not in the path — adding
 one must not change the path grammar or break existing readers.
 
-### Why the display names are separate
-
-`scenarios/<scenario>/template.json` holds presentation metadata: human-readable
-names for scenarios, variants and reactions.
-
-It is kept out of the result files on purpose. Result files are immutable
-history; if display names were copied into every one of them, fixing a single
-typo would mean rewriting thousands of files. Instead the names are joined in
-at build time, and a variant that has been retired from CI still renders
-correctly because the template still describes it.
-
-## The record
-
-```json
-{
-  "schema_version": 1,
-  "run": {
-    "run_id": "17400011133",
-    "run_attempt": 1,
-    "workflow": "e2e-building-comfort.yml",
-    "trigger": "schedule",
-    "runner": "ubuntu-latest",
-    "started_at": "2026-07-27T07:00:00Z",
-    "finished_at": "2026-07-27T07:04:05Z",
-    "url": "https://github.com/drasi-project/test-infra/actions/runs/17400011133"
-  },
-  "versions": {
-    "test_infra_sha": "3f1c9a77d2b4e86051aa77c3d9e2b1f4a6c8d0e2",
-    "drasi_server_tag": "v0.1.4",
-    "drasi_server_build": "drasi-server 0.1.4"
-  },
-  "dimensions": {
-    "scenario": "building_comfort",
-    "variant": "drasi_server_http",
-    "target": "drasi_server",
-    "transport": "http"
-  },
-  "params": { "change_count": 100000, "seed": 123456789 },
-  "status": "success",
-  "determinism": "pass",
-  "reactions": [
-    {
-      "reaction_id": "building-comfort",
-      "status": "Stopped",
-      "records": 99981,
-      "expected_records": 99981,
-      "duration_s": 41.2,
-      "records_per_sec": 2426.7,
-      "determinism": "pass",
-      "sha256": "3b930107b012"
-    }
-  ],
-  "totals": { "records": 149841, "duration_s": 52.0, "records_per_sec": 2881.6 }
-}
-```
-
-Things worth knowing:
-
-- **`reactions` is an array** because a scenario can have several reactions
-  with different record counts (`building_comfort` has two). A single
-  run-level number would be ambiguous.
-- **`status` and `determinism` are independent.** A run can complete
-  successfully and still fail determinism.
-- **`determinism: "not_applicable"`** is correct and expected for scenarios
-  with no determinism handler (`stock_market`). Never report a fabricated
-  `pass`.
-- **`versions.drasi_server_tag` matters.** Most regressions come from
-  drasi-server, not from test-infra. Without it a downward trend can't be
-  attributed. The dashboard draws a marker wherever this value changes.
-- **`totals.duration_s` is wall clock** (latest end minus earliest start), not
-  a sum, so `totals.records_per_sec` is a meaningful aggregate rather than a
-  sum of rates.
-- **`expected_records`** makes a truncated run detectable. A run that stopped
-  early otherwise looks *fast* on a throughput chart.
+Display names live in `scenarios/<scenario>/template.json` and are joined in at
+build time, so they aren't copied into every result file.
 
 ### Adding fields
 
@@ -131,7 +59,8 @@ becomes a fake datapoint on a trend line.
 A GitHub Action in `test-infra` builds the summary and pushes it here. What it
 must do:
 
-**1. Build one record per job.** Source fields from the run's artifacts:
+**1. Build one record per job.** Any file under `results/` is a working example
+of the shape. Source fields from the run's artifacts:
 
 | Record field | Source |
 |---|---|
@@ -142,10 +71,11 @@ must do:
 | `reactions[].sha256` | `.reaction_observer.logger_results[]` where `logger_name == "DeterminismHash"` → `.summary.sha256` |
 | `reactions[].determinism` | `determinism_verdict.json` → `.results[<reaction_id>].passed` |
 | `run.*` | GitHub Actions context |
-| `versions.drasi_server_tag` | the resolved drasi-server release tag |
+| `versions.drasi_server_version` | `$server_version` in `run_test_ci.sh` — the same value the step summary prints as "drasi-server binary" |
+| `versions.drasi_server_tag` | `$drasi_version` in `run_test_ci.sh` — the requested release tag |
 | `params.*` | the variant's `config.json` |
 
-Two traps in that mapping:
+Five traps in that mapping:
 
 - **Do not use `result_summary.observer_runtime_s` for duration.** It is a
   human-readable string like `"5.2 minutes"`. Duration must come from
@@ -155,6 +85,18 @@ Two traps in that mapping:
   uses the dotted form
   (`drasi_server_dev_repo.building_comfort.test_run_001.building-comfort`).
   Join on the last dotted segment. Records here always use the **bare** id.
+- **Record the binary version, not just the tag.** The tag is normally the
+  moving pointer `latest`, which never changes, so a dashboard keyed on it
+  would never show a version boundary. `run_test_ci.sh` already computes both
+  for the step summary; reuse them. `$server_version` looks like
+  `drasi-server 0.2.1` — store the version part (`0.2.1`). It falls back to
+  the literal string `unknown` when `--version` fails, so handle that.
+- **Emit `determinism: "not_applicable"`** for scenarios with no determinism
+  handler (`stock_market`). Never report a fabricated `pass` — the validator
+  rejects a run-level `pass` that contradicts a failing reaction.
+- **`totals.duration_s` is wall clock** (latest end minus earliest start), not
+  a sum of per-reaction durations, or `totals.records_per_sec` becomes a
+  meaningless sum of rates.
 
 **2. Validate before pushing.** Fetch `validate-results.py` from this repo and
 run it against the new file. A bad record then fails in test-infra, where the
@@ -202,9 +144,21 @@ python3 -m http.server 8000          # then open http://localhost:8000
 Pages artifact, so the full dataset isn't rewritten into git history on every
 run.
 
-The files currently under `results/` are **sample data** from
-`tools/make-seed-data.py`, so the dashboard has something to show before the
-test-infra side is wired up. Delete them once real results arrive.
+### Backfilling from existing runs
+
+Until the test-infra push step exists, results can be backfilled from artifacts
+that are still on GitHub. Artifacts expire after 90 days, so this only reaches
+back that far.
+
+```bash
+gh run download <run_id> --repo drasi-project/test-infra --dir /tmp/arts/<run_id>
+python3 tools/backfill-from-artifacts.py /tmp/arts/<run_id>
+```
+
+`summarize_job` in that script is the reference implementation of the emitter
+described above — it already handles the reaction-id join, the wall-clock
+totals and the `not_applicable` determinism case, so port it rather than
+rewriting the mapping from scratch. Use `--dry-run` to preview.
 
 ## Related
 
