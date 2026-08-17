@@ -1,0 +1,29 @@
+{
+  "scenario": "building_comfort",
+  "display_name": "Building Comfort",
+  "description": "Hierarchical building / floor / room comfort-level aggregation. Two reactions: per-room comfort level and a floor-level aggregate.",
+  "variants": {
+    "drasi_server_http": {
+      "display_name": "drasi-server (HTTP)",
+      "target": "drasi_server",
+      "transport": "http",
+      "order": 1
+    },
+    "drasi_server_grpc": {
+      "display_name": "drasi-server (gRPC)",
+      "target": "drasi_server",
+      "transport": "grpc",
+      "order": 2
+    },
+    "drasi_lib": {
+      "display_name": "drasi-lib (in-process)",
+      "target": "drasi_lib",
+      "transport": "in_process",
+      "order": 3
+    }
+  },
+  "reactions": {
+    "building-comfort": { "display_name": "Room comfort level" },
+    "building-comfort-floor-agg": { "display_name": "Floor aggregate" }
+  }
+}

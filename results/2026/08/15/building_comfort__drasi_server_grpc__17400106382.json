@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "17400106382",
+    "run_attempt": 1,
+    "workflow": "e2e-building-comfort.yml",
+    "trigger": "schedule",
+    "runner": "ubuntu-latest",
+    "started_at": "2026-08-15T07:00:00Z",
+    "finished_at": "2026-08-15T07:03:43Z",
+    "url": "https://github.com/drasi-project/test-infra/actions/runs/17400106382"
+  },
+  "versions": {
+    "test_infra_sha": "b24e9f01c7a5d38e62f4901ab3c7d5e8f2016b93",
+    "drasi_server_tag": "v0.1.6",
+    "drasi_server_build": "drasi-server 0.1.6"
+  },
+  "dimensions": {
+    "scenario": "building_comfort",
+    "variant": "drasi_server_grpc",
+    "target": "drasi_server",
+    "transport": "grpc"
+  },
+  "params": {
+    "change_count": 100000,
+    "seed": 123456789
+  },
+  "status": "success",
+  "determinism": "pass",
+  "reactions": [
+    {
+      "reaction_id": "building-comfort",
+      "status": "Stopped",
+      "records": 99981,
+      "expected_records": 99981,
+      "duration_s": 42.29,
+      "records_per_sec": 2364.3,
+      "determinism": "pass",
+      "sha256": "3b930107b012"
+    },
+    {
+      "reaction_id": "building-comfort-floor-agg",
+      "status": "Stopped",
+      "records": 49860,
+      "expected_records": 49860,
+      "duration_s": 34.01,
+      "records_per_sec": 1465.9,
+      "determinism": "pass",
+      "sha256": "a71f4c8d9e02"
+    }
+  ],
+  "totals": {
+    "records": 149841,
+    "duration_s": 42.29,
+    "records_per_sec": 3543.2
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "scenario": "stock_market",
+  "display_name": "Stock Market Join",
+  "description": "Join across an HTTP and a gRPC source, producing a watchlist price reaction. No determinism handler upstream, so determinism is reported as not_applicable.",
+  "variants": {
+    "drasi_server_http_grpc_join": {
+      "display_name": "drasi-server (HTTP + gRPC join)",
+      "target": "drasi_server",
+      "transport": "http_grpc",
+      "order": 1
+    }
+  },
+  "reactions": {
+    "watchlist-prices": { "display_name": "Watchlist prices" }
+  }
+}

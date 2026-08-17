@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "17400061850",
+    "run_attempt": 1,
+    "workflow": "e2e-building-comfort.yml",
+    "trigger": "schedule",
+    "runner": "ubuntu-latest",
+    "started_at": "2026-08-06T07:00:00Z",
+    "finished_at": "2026-08-06T07:31:00Z",
+    "url": "https://github.com/drasi-project/test-infra/actions/runs/17400061850"
+  },
+  "versions": {
+    "test_infra_sha": "7dc6281f4a93c05e1b8d47f2a0c96e3b5d81f4a7",
+    "drasi_server_tag": "v0.1.5",
+    "drasi_server_build": "drasi-server 0.1.5"
+  },
+  "dimensions": {
+    "scenario": "building_comfort",
+    "variant": "drasi_server_grpc",
+    "target": "drasi_server",
+    "transport": "grpc"
+  },
+  "params": {
+    "change_count": 100000,
+    "seed": 123456789
+  },
+  "status": "failure",
+  "determinism": "not_applicable",
+  "reactions": [
+    {
+      "reaction_id": "building-comfort",
+      "status": "Error",
+      "records": 21447,
+      "expected_records": 99981,
+      "duration_s": null,
+      "records_per_sec": null,
+      "determinism": "not_applicable",
+      "sha256": null,
+      "error_message": "reaction handler stopped responding after 21447 records"
+    },
+    {
+      "reaction_id": "building-comfort-floor-agg",
+      "status": "Error",
+      "records": 21447,
+      "expected_records": 49860,
+      "duration_s": null,
+      "records_per_sec": null,
+      "determinism": "not_applicable",
+      "sha256": null,
+      "error_message": "reaction handler stopped responding after 21447 records"
+    }
+  ],
+  "totals": {}
+}

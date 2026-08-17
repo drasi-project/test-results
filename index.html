@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drasi E2E test results</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>&#128200;</text></svg>">
+<style>
+:root {
+  --bg: #ffffff; --fg: #1c2024; --muted: #6b7280; --line: #e5e7eb;
+  --panel: #f9fafb; --accent: #2563eb;
+  --pass: #16a34a; --fail: #dc2626; --na: #9ca3af; --warn: #d97706;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1419; --fg: #e6e8eb; --muted: #9aa4b2; --line: #262d36;
+    --panel: #161b22; --accent: #60a5fa;
+    --pass: #4ade80; --fail: #f87171; --na: #6b7280; --warn: #fbbf24;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+header { padding: 20px 24px 12px; border-bottom: 1px solid var(--line); }
+h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+header p { margin: 0; color: var(--muted); font-size: 13px; }
+header a { color: var(--accent); }
+main { padding: 16px 24px 48px; max-width: 1400px; }
+.filters {
+  display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
+  padding: 14px 16px; margin-bottom: 20px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+.filter { display: flex; flex-direction: column; gap: 4px; }
+.filter label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+select, button {
+  font: inherit; padding: 5px 8px; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+}
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 20px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px 8px; background: var(--panel); }
+.card h2 { margin: 0 0 2px; font-size: 14px; font-weight: 600; }
+.card .sub { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+svg { width: 100%; height: auto; display: block; overflow: visible; }
+.grid-line { stroke: var(--line); stroke-width: 1; }
+.axis-text { fill: var(--muted); font-size: 10px; }
+.series-line { fill: none; stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.pt { stroke: var(--bg); stroke-width: 1; cursor: pointer; }
+.rel-line { stroke: var(--muted); stroke-dasharray: 3 3; stroke-width: 1; opacity: .8; }
+.rel-text { fill: var(--muted); font-size: 9px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 6px 0 2px; font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+.swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.status-strip { display: flex; gap: 2px; flex-wrap: wrap; margin-top: 4px; }
+.status-cell { width: 13px; height: 20px; border-radius: 2px; cursor: pointer; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr:hover td { background: var(--panel); }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.tag.pass { background: color-mix(in srgb, var(--pass) 18%, transparent); color: var(--pass); }
+.tag.fail { background: color-mix(in srgb, var(--fail) 18%, transparent); color: var(--fail); }
+.tag.na { background: color-mix(in srgb, var(--na) 18%, transparent); color: var(--na); }
+.tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+a { color: var(--accent); }
+.empty { padding: 28px; text-align: center; color: var(--muted); }
+#tooltip {
+  position: fixed; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--fg); color: var(--bg); padding: 6px 9px; border-radius: 6px;
+  font-size: 12px; line-height: 1.45; z-index: 10; max-width: 280px;
+}
+#tooltip b { font-weight: 600; }
+.section-title { margin: 28px 0 10px; font-size: 15px; font-weight: 600; }
+.table-wrap { border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 480px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Drasi E2E test results</h1>
+  <p>
+    Daily performance and pass/fail history from
+    <a href="https://github.com/drasi-project/test-infra">drasi-project/test-infra</a>.
+    Stored in <a href="https://github.com/drasi-project/test-results">drasi-project/test-results</a>.
+  </p>
+</header>
+<main>
+  <div class="filters">
+    <div class="filter"><label for="f-scenario">Scenario</label><select id="f-scenario"></select></div>
+    <div class="filter"><label for="f-variant">Variant</label><select id="f-variant"></select></div>
+    <div class="filter"><label for="f-target">Target</label><select id="f-target"></select></div>
+    <div class="filter"><label for="f-transport">Transport</label><select id="f-transport"></select></div>
+    <div class="filter"><label for="f-reaction">Reaction</label><select id="f-reaction"></select></div>
+    <div class="filter"><label for="f-range">Range</label>
+      <select id="f-range">
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last year</option>
+        <option value="0" selected>All time</option>
+      </select>
+    </div>
+    <div class="filter"><label>&nbsp;</label><button id="f-reset">Reset</button></div>
+  </div>
+
+  <div id="content"></div>
+
+  <h2 class="section-title">Runs</h2>
+  <div class="table-wrap"><table id="runs">
+    <thead><tr>
+      <th>Date (UTC)</th><th>Scenario</th><th>Variant</th><th>Reaction</th>
+      <th class="num">Records</th><th class="num">Duration&nbsp;(s)</th><th class="num">Records/sec</th>
+      <th>Status</th><th>Determinism</th><th>Version</th><th>Run</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table></div>
+</main>
+<div id="tooltip"></div>
+
+<script src="data.generated.js"></script>
+<script>
+"use strict";
+
+const PALETTE = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#c026d3", "#65a30d"];
+const DIMS = ["scenario", "variant", "target", "transport", "reaction"];
+const ALL = "__all__";
+// data.generated.js declares `const data` / `const meta`. Top-level `const`
+// does NOT become a property of window, so these must be referenced directly.
+const rows = typeof data !== "undefined" && Array.isArray(data) ? data : [];
+const templates = typeof meta !== "undefined" && meta ? meta : {};
+const tooltip = document.getElementById("tooltip");
+
+// Run-level rows carry no reaction; per-reaction rows do. Charts use one or
+// the other depending on whether a specific reaction is selected.
+const runRows = rows.filter(r => !r.reaction);
+const reactionRows = rows.filter(r => r.reaction);
+
+function label(row, dim) {
+  const tpl = templates[row.scenario];
+  if (!tpl) return row[dim];
+  if (dim === "scenario") return tpl.display_name || row.scenario;
+  if (dim === "variant") {
+    const v = (tpl.variants || {})[row.variant];
+    return (v && v.display_name) || row.variant;
+  }
+  if (dim === "reaction") {
+    const rx = (tpl.reactions || {})[row.reaction];
+    return (rx && rx.display_name) || row.reaction;
+  }
+  return row[dim];
+}
+
+function readState() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const state = {};
+  DIMS.forEach(d => state[d] = params.get(d) || ALL);
+  state.range = params.get("range") || "0";
+  return state;
+}
+
+function writeState(state) {
+  const params = new URLSearchParams();
+  DIMS.forEach(d => { if (state[d] !== ALL) params.set(d, state[d]); });
+  if (state.range !== "0") params.set("range", state.range);
+  const next = params.toString();
+  if (next !== location.hash.slice(1)) {
+    history.replaceState(null, "", next ? "#" + next : location.pathname);
+  }
+}
+
+function cutoff(state) {
+  const days = parseInt(state.range, 10);
+  if (!days) return null;
+  let newest = 0;
+  rows.forEach(r => { const t = Date.parse(r.ts); if (t > newest) newest = t; });
+  if (!newest) return null;
+  return newest - days * 86400000;
+}
+
+// A row passes if it matches every filter. `except` lets each dropdown list
+// the options that remain valid given the *other* filters, so you cannot pick
+// a combination that yields nothing.
+function matches(row, state, except) {
+  for (const d of DIMS) {
+    if (d === except) continue;
+    if (state[d] === ALL) continue;
+    if (d === "reaction" && !row.reaction) continue;
+    if (row[d] !== state[d]) return false;
+  }
+  return true;
+}
+
+function applyFilters(source, state) {
+  const min = cutoff(state);
+  return source.filter(r => matches(r, state, null) && (min === null || Date.parse(r.ts) >= min));
+}
+
+function fillSelect(id, dim, state, source) {
+  const select = document.getElementById(id);
+  const values = new Map();
+  source.forEach(r => {
+    if (!r[dim]) return;
+    if (!matches(r, state, dim)) return;
+    if (!values.has(r[dim])) values.set(r[dim], label(r, dim));
+  });
+  const options = [...values.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  select.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = ALL;
+  allOpt.textContent = dim === "reaction" ? "All (run totals)" : "All";
+  select.appendChild(allOpt);
+  options.forEach(([value, text]) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = text;
+    select.appendChild(opt);
+  });
+  if (state[dim] !== ALL && !values.has(state[dim])) state[dim] = ALL;
+  select.value = state[dim];
+}
+
+function seriesKey(row) { return row.scenario + " / " + row.variant; }
+
+function groupSeries(data) {
+  const map = new Map();
+  data.forEach(row => {
+    const key = seriesKey(row);
+    if (!map.has(key)) map.set(key, { key: key, label: label(row, "scenario") + " / " + label(row, "variant"), points: [] });
+    map.get(key).points.push(row);
+  });
+  const series = [...map.values()];
+  series.forEach(s => s.points.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts)));
+  series.sort((a, b) => a.label.localeCompare(b.label));
+  series.forEach((s, i) => s.color = PALETTE[i % PALETTE.length]);
+  return series;
+}
+
+function niceTicks(min, max, count) {
+  if (min === max) { min = Math.min(0, min); max = max || 1; }
+  const raw = (max - min) / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm >= 5 ? 10 : norm >= 2 ? 5 : norm >= 1 ? 2 : 1) * mag;
+  const start = Math.floor(min / step) * step;
+  const ticks = [];
+  for (let v = start; v <= max + step * 0.5; v += step) ticks.push(v);
+  return ticks;
+}
+
+function fmtNum(value) {
+  if (value === undefined || value === null) return "—";
+  if (value >= 1000) return Math.round(value).toLocaleString("en-US");
+  return (Math.round(value * 100) / 100).toLocaleString("en-US");
+}
+
+function fmtDate(ts) { return (ts || "").slice(0, 10); }
+
+function showTip(event, html) {
+  tooltip.innerHTML = html;
+  tooltip.style.opacity = "1";
+  const box = tooltip.getBoundingClientRect();
+  let left = event.clientX + 14;
+  let top = event.clientY + 14;
+  if (left + box.width > window.innerWidth - 8) left = event.clientX - box.width - 14;
+  if (top + box.height > window.innerHeight - 8) top = event.clientY - box.height - 14;
+  tooltip.style.left = left + "px";
+  tooltip.style.top = top + "px";
+}
+
+function hideTip() { tooltip.style.opacity = "0"; }
+
+function svgEl(name, attrs) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const key in attrs) node.setAttribute(key, attrs[key]);
+  return node;
+}
+
+function drawChart(container, title, subtitle, series, field, unit) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = "<h2>" + title + "</h2><p class='sub'>" + subtitle + "</p>";
+
+  const points = [];
+  series.forEach(s => s.points.forEach(p => { if (typeof p[field] === "number") points.push(p); }));
+  if (!points.length) {
+    card.insertAdjacentHTML("beforeend", "<div class='empty'>No data for this selection.</div>");
+    container.appendChild(card);
+    return;
+  }
+
+  const W = 640, H = 260, ML = 58, MR = 14, MT = 10, MB = 30;
+  const plotW = W - ML - MR, plotH = H - MT - MB;
+
+  const times = points.map(p => Date.parse(p.ts));
+  const values = points.map(p => p[field]);
+  const tMin = Math.min(...times), tMax = Math.max(...times);
+  const vMax = Math.max(...values);
+  const ticks = niceTicks(0, vMax, 5);
+  const vTop = ticks[ticks.length - 1];
+
+  const x = t => ML + (tMax === tMin ? plotW / 2 : ((t - tMin) / (tMax - tMin)) * plotW);
+  const y = v => MT + plotH - (vTop ? (v / vTop) * plotH : 0);
+
+  const svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+
+  ticks.forEach(tick => {
+    svg.appendChild(svgEl("line", { class: "grid-line", x1: ML, x2: ML + plotW, y1: y(tick), y2: y(tick) }));
+    const text = svgEl("text", { class: "axis-text", x: ML - 8, y: y(tick) + 3, "text-anchor": "end" });
+    text.textContent = fmtNum(tick);
+    svg.appendChild(text);
+  });
+
+  const span = tMax - tMin;
+  const xTickCount = Math.min(6, Math.max(2, Math.round(plotW / 110)));
+  for (let i = 0; i < xTickCount; i++) {
+    const t = tMin + (span * i) / (xTickCount - 1 || 1);
+    const text = svgEl("text", { class: "axis-text", x: x(t), y: H - 10, "text-anchor": "middle" });
+    text.textContent = new Date(t).toISOString().slice(5, 10);
+    svg.appendChild(text);
+  }
+
+  // Vertical rule where drasi-server version changes: a step in the line then
+  // lines up visually with the release that caused it.
+  const releases = [];
+  const byTime = points.slice().sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  let lastTag = null;
+  byTime.forEach(p => {
+    if (p.server_tag && p.server_tag !== lastTag) {
+      if (lastTag !== null) releases.push({ t: Date.parse(p.ts), tag: p.server_tag });
+      lastTag = p.server_tag;
+    }
+  });
+  releases.forEach(rel => {
+    svg.appendChild(svgEl("line", { class: "rel-line", x1: x(rel.t), x2: x(rel.t), y1: MT, y2: MT + plotH }));
+    const text = svgEl("text", { class: "rel-text", x: x(rel.t) + 3, y: MT + 9 });
+    text.textContent = rel.tag;
+    svg.appendChild(text);
+  });
+
+  series.forEach(s => {
+    const valid = s.points.filter(p => typeof p[field] === "number");
+    if (!valid.length) return;
+    const d = valid.map((p, i) => (i ? "L" : "M") + x(Date.parse(p.ts)).toFixed(1) + " " + y(p[field]).toFixed(1)).join(" ");
+    svg.appendChild(svgEl("path", { class: "series-line", d: d, stroke: s.color }));
+    valid.forEach(p => {
+      const circle = svgEl("circle", { class: "pt", cx: x(Date.parse(p.ts)), cy: y(p[field]), r: 2.8, fill: s.color });
+      circle.addEventListener("mousemove", e => {
+        e.stopPropagation();
+        showTip(e,
+          "<b>" + s.label + "</b><br>" + p.ts.replace("T", " ").replace("Z", " UTC") +
+          "<br>" + fmtNum(p[field]) + " " + unit +
+          (p.reaction ? "<br>reaction: " + p.reaction : "") +
+          (p.server_tag ? "<br>drasi-server " + p.server_tag : "") +
+          "<br><i>click to open run</i>");
+      });
+      circle.addEventListener("mouseleave", hideTip);
+      circle.addEventListener("click", () => { if (p.url) window.open(p.url, "_blank", "noopener"); });
+      svg.appendChild(circle);
+    });
+  });
+
+  svg.addEventListener("mouseleave", hideTip);
+  card.appendChild(svg);
+
+  const legend = document.createElement("div");
+  legend.className = "legend";
+  series.forEach(s => {
+    const item = document.createElement("span");
+    item.innerHTML = "<i class='swatch' style='background:" + s.color + "'></i>" + s.label;
+    legend.appendChild(item);
+  });
+  card.appendChild(legend);
+  container.appendChild(card);
+}
+
+function drawStatusStrip(container, data) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = "<h2>Run outcomes</h2><p class='sub'>One cell per run, oldest first. Red = failed, amber = determinism failure.</p>";
+  const strip = document.createElement("div");
+  strip.className = "status-strip";
+
+  const ordered = data.slice().sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  if (!ordered.length) {
+    card.insertAdjacentHTML("beforeend", "<div class='empty'>No runs for this selection.</div>");
+    container.appendChild(card);
+    return;
+  }
+
+  ordered.forEach(row => {
+    const cell = document.createElement("div");
+    cell.className = "status-cell";
+    let color = "var(--pass)", note = "success";
+    if (row.status !== "success") { color = "var(--fail)"; note = row.status; }
+    else if (row.determinism === "fail") { color = "var(--warn)"; note = "determinism failed"; }
+    cell.style.background = color;
+    cell.addEventListener("mousemove", e => showTip(e,
+      "<b>" + label(row, "scenario") + " / " + label(row, "variant") + "</b><br>" +
+      fmtDate(row.ts) + "<br>" + note + "<br><i>click to open run</i>"));
+    cell.addEventListener("mouseleave", hideTip);
+    cell.addEventListener("click", () => { if (row.url) window.open(row.url, "_blank", "noopener"); });
+    strip.appendChild(cell);
+  });
+
+  card.appendChild(strip);
+  container.appendChild(card);
+}
+
+function tag(value) {
+  const cls = value === "pass" ? "pass" : value === "fail" ? "fail" : value === "success" ? "pass" : value === "not_applicable" ? "na" : "fail";
+  const text = value === "not_applicable" ? "n/a" : value;
+  return "<span class='tag " + cls + "'>" + text + "</span>";
+}
+
+function renderTable(data) {
+  const tbody = document.querySelector("#runs tbody");
+  const recent = data.slice().sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts)).slice(0, 200);
+  if (!recent.length) {
+    tbody.innerHTML = "<tr><td colspan='11' class='empty'>No runs match these filters.</td></tr>";
+    return;
+  }
+  tbody.innerHTML = recent.map(row => {
+    const truncated = typeof row.records === "number" && typeof row.expected_records === "number" && row.records < row.expected_records;
+    const records = fmtNum(row.records) + (truncated ? " <span class='tag warn'>short</span>" : "");
+    return "<tr>" +
+      "<td>" + row.ts.replace("T", " ").replace("Z", "") + "</td>" +
+      "<td>" + label(row, "scenario") + "</td>" +
+      "<td>" + label(row, "variant") + "</td>" +
+      "<td>" + (row.reaction ? label(row, "reaction") : "<i>total</i>") + "</td>" +
+      "<td class='num'>" + records + "</td>" +
+      "<td class='num'>" + fmtNum(row.duration_s) + "</td>" +
+      "<td class='num'>" + fmtNum(row.records_per_sec) + "</td>" +
+      "<td>" + tag(row.status) + "</td>" +
+      "<td>" + tag(row.determinism) + "</td>" +
+      "<td>" + (row.server_tag || "—") + "</td>" +
+      "<td>" + (row.url ? "<a href='" + row.url + "' target='_blank' rel='noopener'>#" + row.run_id + "</a>" : "—") +
+      " · <a href='" + row.source + "' target='_blank' rel='noopener'>json</a></td>" +
+      "</tr>";
+  }).join("");
+}
+
+function render() {
+  const state = readState();
+  const usingReactions = state.reaction !== ALL;
+  const source = usingReactions ? reactionRows : runRows;
+
+  fillSelect("f-scenario", "scenario", state, rows);
+  fillSelect("f-variant", "variant", state, rows);
+  fillSelect("f-target", "target", state, rows);
+  fillSelect("f-transport", "transport", state, rows);
+  fillSelect("f-reaction", "reaction", state, reactionRows);
+  document.getElementById("f-range").value = state.range;
+  writeState(state);
+
+  const filtered = applyFilters(source, state);
+  const content = document.getElementById("content");
+  content.innerHTML = "";
+
+  if (!filtered.length) {
+    content.innerHTML = "<div class='card'><div class='empty'>No runs match these filters.</div></div>";
+    renderTable([]);
+    return;
+  }
+
+  const grain = usingReactions ? "reaction “" + state.reaction + "”" : "run totals";
+  const series = groupSeries(filtered);
+
+  const charts = document.createElement("div");
+  charts.className = "charts";
+  drawChart(charts, "Throughput", "Records per second over time — " + grain + ". Higher is better.", series, "records_per_sec", "records/sec");
+  drawChart(charts, "Duration", "Wall-clock seconds per run — " + grain + ". Lower is better.", series, "duration_s", "seconds");
+  content.appendChild(charts);
+
+  const stripWrap = document.createElement("div");
+  stripWrap.className = "charts";
+  stripWrap.style.marginTop = "20px";
+  drawStatusStrip(stripWrap, applyFilters(runRows, state));
+  content.appendChild(stripWrap);
+
+  renderTable(filtered);
+}
+
+DIMS.forEach(dim => {
+  document.getElementById("f-" + dim).addEventListener("change", event => {
+    const state = readState();
+    state[dim] = event.target.value;
+    writeState(state);
+    render();
+  });
+});
+document.getElementById("f-range").addEventListener("change", event => {
+  const state = readState();
+  state.range = event.target.value;
+  writeState(state);
+  render();
+});
+document.getElementById("f-reset").addEventListener("click", () => {
+  history.replaceState(null, "", location.pathname);
+  render();
+});
+window.addEventListener("hashchange", render);
+
+if (!rows.length) {
+  document.getElementById("content").innerHTML =
+    "<div class='card'><div class='empty'>No results yet. Run <code>python3 generate-results.py</code> to build <code>data.generated.js</code>.</div></div>";
+} else {
+  render();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+name: Validate results
+
+# Runs on every PR and push. This is the gate that keeps malformed records off
+# main. test-infra also runs this same script before pushing, so problems
+# surface there first; this is the backstop.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate result files
+        run: python3 validate-results.py
+
+      - name: Check the site builds
+        run: python3 generate-results.py -o /tmp/data.generated.js

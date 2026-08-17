@@ -1,0 +1,63 @@
+name: Publish dashboard
+
+# Builds data.generated.js and publishes the site to GitHub Pages.
+#
+# data.generated.js is deliberately NOT committed: it is rebuilt from results/
+# on every push, so committing it would add a rewritten copy of the entire
+# dataset to git history on every single run. Pages artifacts live outside git
+# history, which avoids that entirely — and removes the need for the
+# bot-commit loop guard that a self-committing workflow would require.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "results/**"
+      - "scenarios/**"
+      - "index.html"
+      - "generate-results.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let an in-flight publish finish, then run the newest one. Never cancel a
+# push that has already been accepted, or a run's data would silently miss
+# the published site until the next push.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate before publishing
+        run: python3 validate-results.py
+
+      - name: Build data.generated.js
+        run: python3 generate-results.py -o site/data.generated.js
+
+      - name: Assemble site
+        run: cp index.html site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
