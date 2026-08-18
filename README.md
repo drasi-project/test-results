@@ -124,9 +124,34 @@ the ref update, not the content. Pushing once per workflow avoids this;
 retry a `git pull --rebase` a few times to cover the remaining race between
 the two workflows.
 
-**5. Authenticate with a deploy key.** An SSH key with write access to this
-repo only, held in test-infra as a secret. Deploy keys don't expire, so CI
-can't silently break the way it would when a token lapses.
+**5. Authenticate with a GitHub App.** `GITHUB_TOKEN` cannot be used: it is
+scoped to the repository running the workflow, so a workflow in test-infra has
+no access here even though both repos are in the same org.
+
+A GitHub App is used rather than a deploy key because of the org ruleset (see
+below): an App is referenced in a ruleset bypass list by its own id, so the
+exemption covers exactly one writer. Deploy keys are per repository and cannot
+be singled out that way at org level.
+
+Setup, once:
+
+1. **Create the App** — org Settings → Developer settings → GitHub Apps → New.
+   Name it something like `drasi-test-results-writer`. Uncheck WebHook →
+   Active. Under Repository permissions set **Contents: Read and write**
+   (nothing else). Where can this App be installed: *Only on this account*.
+2. **Generate a private key** on the App's page and download the `.pem`.
+3. **Install the App** — App page → Install App → drasi-project → *Only select
+   repositories* → `test-results`.
+4. **Add two secrets to `test-infra`** (Settings → Secrets and variables →
+   Actions): `TEST_RESULTS_APP_ID` (the numeric App ID) and
+   `TEST_RESULTS_APP_PRIVATE_KEY` (the whole `.pem`, including the
+   `-----BEGIN...` and `-----END...` lines).
+5. **Add the App to the ruleset bypass list** — org Settings → Repository →
+   Rulesets → `drasi-org-main` → Bypass list → Add bypass → select the App.
+   Without this the push is rejected: that ruleset protects the default branch
+   of every repo in the org, requires a pull request with an approving review
+   plus a DCO check, and ships with `OrganizationAdmin` as its only bypass
+   actor.
 
 **6. Never fail the test job because publishing failed.** Run the push step
 with `if: always()` and let it exit 0 on error. A lost datapoint is much
