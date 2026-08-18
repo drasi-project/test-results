@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "32171301568",
+    "run_attempt": 1,
+    "workflow": "e2e-stock-market-join.yml",
+    "trigger": "workflow_dispatch",
+    "runner": "ubuntu-latest",
+    "started_at": "2026-08-18T18:39:39Z",
+    "finished_at": "2026-08-18T18:40:16Z",
+    "url": "https://github.com/drasi-project/test-infra/actions/runs/32171301568"
+  },
+  "versions": {
+    "test_infra_sha": "408ef16dbee37526e20e4288734865ac8e9a2751",
+    "drasi_server_version": "0.2.1",
+    "drasi_server_tag": "latest"
+  },
+  "dimensions": {
+    "scenario": "stock_market",
+    "variant": "drasi_server_http_grpc_join",
+    "target": "drasi_server",
+    "transport": "http_grpc"
+  },
+  "status": "success",
+  "determinism": "not_applicable",
+  "reactions": [
+    {
+      "reaction_id": "watchlist-prices",
+      "status": "Stopped",
+      "records": 75000,
+      "duration_s": 8.48,
+      "records_per_sec": 8846.2,
+      "determinism": "not_applicable"
+    }
+  ],
+  "totals": {
+    "records": 75000,
+    "duration_s": 8.48,
+    "records_per_sec": 8846.2
+  }
+}
