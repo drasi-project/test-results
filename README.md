@@ -142,10 +142,11 @@ Setup, once:
 2. **Generate a private key** on the App's page and download the `.pem`.
 3. **Install the App** — App page → Install App → drasi-project → *Only select
    repositories* → `test-results`.
-4. **Add two secrets to `test-infra`** (Settings → Secrets and variables →
-   Actions): `TEST_RESULTS_APP_ID` (the numeric App ID) and
-   `TEST_RESULTS_APP_PRIVATE_KEY` (the whole `.pem`, including the
-   `-----BEGIN...` and `-----END...` lines).
+4. **Add the credentials to `test-infra`** (Settings → Secrets and variables →
+   Actions). The App ID is a **variable**, `TEST_RESULTS_APP_ID` — it is a
+   public identifier, not a secret. The private key is a **secret**,
+   `TEST_RESULTS_APP_PRIVATE_KEY`, holding the whole `.pem` including the
+   `-----BEGIN...` and `-----END...` lines.
 5. **Add the App to the ruleset bypass list** — org Settings → Repository →
    Rulesets → `drasi-org-main` → Bypass list → Add bypass → select the App.
    Without this the push is rejected: that ruleset protects the default branch
