@@ -167,8 +167,8 @@ const rows = typeof data !== "undefined" && Array.isArray(data) ? data : [];
 const templates = typeof meta !== "undefined" && meta ? meta : {};
 const tooltip = document.getElementById("tooltip");
 
-// Run-level rows carry no reaction; per-reaction rows do. Charts use one or
-// the other depending on whether a specific reaction is selected.
+// Run-level rows carry no reaction and exist only for status/freshness.
+// Performance charts and the table always use measured per-reaction rows.
 const runRows = rows.filter(r => !r.reaction);
 const reactionRows = rows.filter(r => r.reaction);
 
@@ -232,6 +232,18 @@ function applyFilters(source, state) {
   return source.filter(r => matches(r, state, null) && (min === null || Date.parse(r.ts) >= min));
 }
 
+function defaultReaction(state, values) {
+  if (state.scenario !== ALL) {
+    const preferred = (templates[state.scenario] || {}).default_reaction;
+    if (preferred && values.has(preferred)) return preferred;
+  }
+  for (const scenario of Object.keys(templates).sort()) {
+    const preferred = (templates[scenario] || {}).default_reaction;
+    if (preferred && values.has(preferred)) return preferred;
+  }
+  return values.keys().next().value || ALL;
+}
+
 function fillSelect(id, dim, state, source) {
   const select = document.getElementById(id);
   const values = new Map();
@@ -242,17 +254,23 @@ function fillSelect(id, dim, state, source) {
   });
   const options = [...values.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   select.innerHTML = "";
-  const allOpt = document.createElement("option");
-  allOpt.value = ALL;
-  allOpt.textContent = dim === "reaction" ? "All (run totals)" : "All";
-  select.appendChild(allOpt);
+  if (dim !== "reaction") {
+    const allOpt = document.createElement("option");
+    allOpt.value = ALL;
+    allOpt.textContent = "All";
+    select.appendChild(allOpt);
+  }
   options.forEach(([value, text]) => {
     const opt = document.createElement("option");
     opt.value = value;
     opt.textContent = text;
     select.appendChild(opt);
   });
-  if (state[dim] !== ALL && !values.has(state[dim])) state[dim] = ALL;
+  if (dim === "reaction") {
+    if (!values.has(state[dim])) state[dim] = defaultReaction(state, values);
+  } else if (state[dim] !== ALL && !values.has(state[dim])) {
+    state[dim] = ALL;
+  }
   select.value = state[dim];
 }
 
@@ -549,8 +567,6 @@ function renderActiveFilters(state, shown, total) {
 
 function render() {
   const state = readState();
-  const usingReactions = state.reaction !== ALL;
-  const source = usingReactions ? reactionRows : runRows;
 
   fillSelect("f-scenario", "scenario", state, rows);
   fillSelect("f-variant", "variant", state, rows);
@@ -559,7 +575,7 @@ function render() {
   document.getElementById("f-range").value = state.range;
   writeState(state);
 
-  const filtered = applyFilters(source, state);
+  const filtered = applyFilters(reactionRows, state);
   const content = document.getElementById("content");
 
   // Counts are of runs, not chart rows, so the badge matches the Runs table.
@@ -572,7 +588,7 @@ function render() {
     return;
   }
 
-  const grain = usingReactions ? "reaction “" + state.reaction + "”" : "run totals";
+  const grain = "reaction “" + state.reaction + "”";
   const series = groupSeries(filtered);
 
   const charts = document.createElement("div");

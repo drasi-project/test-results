@@ -42,16 +42,20 @@ def load_templates():
     return templates
 
 
-def flatten(record, source):
-    """One run record -> one row per reaction, plus a run-level row.
+def flatten(record, source, templates):
+    """One run record -> one row per reaction, plus run-level metadata.
 
     Storage grain (one file per CI job) deliberately differs from chart grain
     (one point per series). Reactions within a run have different record
-    counts, so they must stay separable.
+    counts and rates, so they must stay separable. The run-level row exists for
+    status and freshness reporting only; aggregate reaction throughput is not a
+    measured performance datapoint.
     """
     run = record.get("run") or {}
     dims = record.get("dimensions") or {}
     versions = record.get("versions") or {}
+    scenario_meta = templates.get(dims.get("scenario")) or {}
+    variant_meta = (scenario_meta.get("variants") or {}).get(dims.get("variant")) or {}
 
     base = {
         "run_id": run.get("run_id"),
@@ -62,9 +66,9 @@ def flatten(record, source):
         "runner": run.get("runner"),
         "url": run.get("url"),
         "scenario": dims.get("scenario"),
-        "variant": dims.get("variant"),
-        "target": dims.get("target"),
-        "transport": dims.get("transport"),
+        "variant": variant_meta.get("dashboard_variant", dims.get("variant")),
+        "target": dims.get("target", variant_meta.get("target")),
+        "transport": dims.get("transport", variant_meta.get("transport")),
         "server_version": versions.get("drasi_server_version"),
         "server_tag": versions.get("drasi_server_tag"),
         "infra_sha": versions.get("test_infra_sha"),
@@ -74,16 +78,8 @@ def flatten(record, source):
     }
 
     rows = []
-    totals = record.get("totals") or {}
     run_row = dict(base)
-    run_row.update(
-        {
-            "reaction": None,
-            "records": totals.get("records"),
-            "duration_s": totals.get("duration_s"),
-            "records_per_sec": totals.get("records_per_sec"),
-        }
-    )
+    run_row["reaction"] = None
     rows.append(run_row)
 
     for reaction in record.get("reactions") or []:
@@ -115,6 +111,7 @@ def main():
         print("error: results/ not found", file=sys.stderr)
         return 1
 
+    templates = load_templates()
     rows = []
     files = 0
     skipped = 0
@@ -129,7 +126,7 @@ def main():
             skipped += 1
             continue
         files += 1
-        rows.extend(flatten(record, str(path.relative_to(ROOT))))
+        rows.extend(flatten(record, str(path.relative_to(ROOT)), templates))
 
     # Chronological, so the site can render without re-sorting.
     rows.sort(key=lambda r: (r.get("ts") or "", r.get("scenario") or "", r.get("variant") or "", r.get("reaction") or ""))
@@ -138,7 +135,6 @@ def main():
     # site already treats missing as absent rather than zero.
     compact = [{k: v for k, v in row.items() if v is not None} for row in rows]
 
-    templates = load_templates()
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
