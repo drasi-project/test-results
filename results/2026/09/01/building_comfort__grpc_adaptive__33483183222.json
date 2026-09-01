@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "33483183222",
+    "run_attempt": 1,
+    "workflow": "e2e-building-comfort.yml",
+    "trigger": "schedule",
+    "runner": "ubuntu-latest",
+    "started_at": "2026-09-01T07:44:44Z",
+    "finished_at": "2026-09-01T07:46:57Z",
+    "url": "https://github.com/drasi-project/test-infra/actions/runs/33483183222"
+  },
+  "versions": {
+    "test_infra_sha": "a26418d55503eaa95d833d4b2f04ab6d0f7518c5",
+    "drasi_server_version": "0.2.3",
+    "drasi_server_tag": "latest"
+  },
+  "dimensions": {
+    "scenario": "building_comfort",
+    "variant": "grpc_adaptive"
+  },
+  "status": "failure",
+  "determinism": "not_applicable",
+  "reactions": []
+}
