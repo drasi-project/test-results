@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "35429220119",
+    "run_attempt": 1,
+    "workflow": "e2e-stock-market-join.yml",
+    "trigger": "schedule",
+    "runner": "ubuntu-latest",
+    "started_at": "2026-09-19T07:28:03Z",
+    "finished_at": "2026-09-19T07:30:06Z",
+    "url": "https://github.com/drasi-project/test-infra/actions/runs/35429220119"
+  },
+  "versions": {
+    "test_infra_sha": "f109522998fe7fa69563f5708dfdb1ffcf0a372a"
+  },
+  "dimensions": {
+    "scenario": "stock_market",
+    "variant": "drasi_server_http_grpc_join",
+    "target": "drasi_server",
+    "transport": "http_grpc"
+  },
+  "status": "failure",
+  "determinism": "not_applicable",
+  "reactions": []
+}
