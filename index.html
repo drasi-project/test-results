@@ -62,13 +62,18 @@ main { padding: 16px 24px 48px; max-width: 1400px; }
 }
 .filter { display: flex; flex-direction: column; gap: 4px; }
 .filter label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.hardware-filter { margin: 0; padding: 0; border: 0; min-width: 0; }
+.hardware-filter legend { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+#f-skus { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+#f-skus label { display: inline-flex; align-items: center; gap: 4px; overflow-wrap: anywhere; }
+.hardware-profile { white-space: normal; overflow-wrap: anywhere; min-width: 160px; }
 select, button {
   font: inherit; padding: 5px 8px; color: var(--fg);
   background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
 }
 button { cursor: pointer; }
 button:hover { border-color: var(--accent); }
-.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 20px; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 20px; }
 .card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px 8px; background: var(--panel); }
 .card h2 { margin: 0 0 2px; font-size: 14px; font-weight: 600; }
 .card .sub { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
@@ -122,6 +127,7 @@ a { color: var(--accent); }
     <div class="filter"><label for="f-variant">Variant</label><select id="f-variant"></select></div>
     <div class="filter"><label for="f-target">Target</label><select id="f-target"></select></div>
     <div class="filter"><label for="f-reaction">Reaction</label><select id="f-reaction"></select></div>
+    <fieldset class="hardware-filter"><legend>VM SKU</legend><div id="f-skus"></div></fieldset>
     <div class="filter"><label for="f-range">Range</label>
       <select id="f-range">
         <option value="7">Last 7 days</option>
@@ -140,7 +146,7 @@ a { color: var(--accent); }
   <h2 class="section-title">Runs</h2>
   <div class="table-wrap"><table id="runs">
     <thead><tr>
-      <th>Date (UTC)</th><th>Scenario</th><th>Variant</th><th>Reaction</th>
+      <th>Date (UTC)</th><th>Scenario</th><th>Variant</th><th>Hardware</th><th>Reaction</th>
       <th class="num">Records</th><th class="num">Duration&nbsp;(s)</th><th class="num">Records/sec</th>
       <th>Status</th><th>Determinism</th><th>Version</th><th>Run</th>
     </tr></thead>
@@ -166,6 +172,27 @@ const ALL = "__all__";
 const rows = typeof data !== "undefined" && Array.isArray(data) ? data : [];
 const templates = typeof meta !== "undefined" && meta ? meta : {};
 const tooltip = document.getElementById("tooltip");
+const DEFAULT_SKU = "Standard_D4s_v6";
+const KNOWN_SKUS = ["Standard_D4s_v3", DEFAULT_SKU, "Standard_F4as_v7", "ubuntu-latest"];
+
+function skuLabel(sku) {
+  return sku === "ubuntu-latest" ? "GitHub ubuntu-latest" : sku;
+}
+
+function skuOf(row) {
+  const match = (row.runner || "").match(/^azure-ephemeral-(Standard_[A-Za-z0-9_]+)(?:-|$)/);
+  return match ? match[1] : row.runner || "Unknown hardware";
+}
+
+const hardwareOptions = [...new Set([...KNOWN_SKUS, ...rows.map(skuOf)])];
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"})[character]);
+}
+
+function hardwareLabel(row) {
+  return skuLabel((row.runner || "Unknown hardware").replace(/^azure-ephemeral-/, ""));
+}
 
 // Run-level rows carry no reaction and exist only for status/freshness.
 // Performance charts and the table always use measured per-reaction rows.
@@ -191,6 +218,7 @@ function readState() {
   const params = new URLSearchParams(location.hash.slice(1));
   const state = {};
   DIMS.forEach(d => state[d] = params.get(d) || ALL);
+  state.skus = params.has("sku") ? params.get("sku").split(",").filter(Boolean) : [DEFAULT_SKU];
   state.range = params.get("range") || "0";
   return state;
 }
@@ -198,6 +226,7 @@ function readState() {
 function writeState(state) {
   const params = new URLSearchParams();
   DIMS.forEach(d => { if (state[d] !== ALL) params.set(d, state[d]); });
+  if (state.skus.length !== 1 || state.skus[0] !== DEFAULT_SKU) params.set("sku", state.skus.join(","));
   if (state.range !== "0") params.set("range", state.range);
   const next = params.toString();
   if (next !== location.hash.slice(1)) {
@@ -218,6 +247,7 @@ function cutoff(state) {
 // the options that remain valid given the *other* filters, so you cannot pick
 // a combination that yields nothing.
 function matches(row, state, except) {
+  if (!state.skus.includes(skuOf(row))) return false;
   for (const d of DIMS) {
     if (d === except) continue;
     if (state[d] === ALL) continue;
@@ -274,13 +304,13 @@ function fillSelect(id, dim, state, source) {
   select.value = state[dim];
 }
 
-function seriesKey(row) { return row.scenario + " / " + row.variant; }
+function seriesKey(row) { return JSON.stringify([row.scenario, row.variant, row.runner || ""]); }
 
 function groupSeries(data) {
   const map = new Map();
   data.forEach(row => {
     const key = seriesKey(row);
-    if (!map.has(key)) map.set(key, { key: key, label: label(row, "scenario") + " / " + label(row, "variant"), points: [] });
+    if (!map.has(key)) map.set(key, { key: key, label: label(row, "scenario") + " / " + label(row, "variant") + " / " + escapeHtml(hardwareLabel(row)), points: [] });
     map.get(key).points.push(row);
   });
   const series = [...map.values()];
@@ -470,6 +500,7 @@ function drawStatusStrip(container, data) {
     cell.style.background = color;
     cell.addEventListener("mousemove", e => showTip(e,
       "<b>" + label(row, "scenario") + " / " + label(row, "variant") + "</b><br>" +
+      escapeHtml(hardwareLabel(row)) + "<br>" +
       fmtDate(row.ts) + "<br>" + note + "<br><i>click to open run</i>"));
     cell.addEventListener("mouseleave", hideTip);
     cell.addEventListener("click", () => { if (row.url) window.open(row.url, "_blank", "noopener"); });
@@ -490,7 +521,7 @@ function renderTable(data) {
   const tbody = document.querySelector("#runs tbody");
   const recent = data.slice().sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts)).slice(0, 200);
   if (!recent.length) {
-    tbody.innerHTML = "<tr><td colspan='11' class='empty'>No runs match these filters.</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='12' class='empty'>No runs match these filters.</td></tr>";
     return;
   }
   tbody.innerHTML = recent.map(row => {
@@ -500,6 +531,7 @@ function renderTable(data) {
       "<td>" + row.ts.replace("T", " ").replace("Z", "") + "</td>" +
       "<td>" + label(row, "scenario") + "</td>" +
       "<td>" + label(row, "variant") + "</td>" +
+      "<td class='hardware-profile'>" + escapeHtml(hardwareLabel(row)) + "</td>" +
       "<td>" + (row.reaction ? label(row, "reaction") : "<i>total</i>") + "</td>" +
       "<td class='num'>" + records + "</td>" +
       "<td class='num'>" + fmtNum(row.duration_s) + "</td>" +
@@ -515,7 +547,8 @@ function renderTable(data) {
 
 function clearFilter(dim) {
   const state = readState();
-  if (dim === "range") state.range = "0"; else state[dim] = ALL;
+  if (dim === "sku") state.skus = [...hardwareOptions];
+  else if (dim === "range") state.range = "0"; else state[dim] = ALL;
   writeState(state);
   render();
 }
@@ -527,8 +560,9 @@ function renderActiveFilters(state, shown, total) {
   const bar = document.getElementById("active-filters");
   const active = DIMS.filter(d => state[d] !== ALL);
   const rangeActive = state.range !== "0";
+  const hardwareActive = hardwareOptions.some(sku => !state.skus.includes(sku));
 
-  if (!active.length && !rangeActive) {
+  if (!active.length && !rangeActive && !hardwareActive) {
     bar.className = "";
     bar.innerHTML = "";
     return;
@@ -549,6 +583,10 @@ function renderActiveFilters(state, shown, total) {
     chips.push("<span class='chip'>" + rangeText +
                "<button data-clear='range' title='Clear'>&times;</button></span>");
   }
+  if (hardwareActive) {
+    chips.push("<span class='chip'>SKU: " + escapeHtml(state.skus.map(skuLabel).join(", ") || "None") +
+               "<button data-clear='sku' title='Include all hardware'>&times;</button></span>");
+  }
 
   bar.className = "on";
   bar.innerHTML =
@@ -561,12 +599,36 @@ function renderActiveFilters(state, shown, total) {
   });
   document.getElementById("clear-all").addEventListener("click", () => {
     history.replaceState(null, "", location.pathname);
+    const cleared = readState();
+    cleared.skus = [...hardwareOptions];
+    writeState(cleared);
     render();
+  });
+}
+
+function renderHardwareFilters(state) {
+  const container = document.getElementById("f-skus");
+  container.replaceChildren();
+  const options = [...new Set([...hardwareOptions, ...state.skus])];
+  options.forEach(sku => {
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = state.skus.includes(sku);
+    checkbox.addEventListener("change", () => {
+      const next = readState();
+      next.skus = checkbox.checked ? [...new Set([...next.skus, sku])] : next.skus.filter(value => value !== sku);
+      writeState(next);
+      render();
+    });
+    label.append(checkbox, document.createTextNode(skuLabel(sku)));
+    container.appendChild(label);
   });
 }
 
 function render() {
   const state = readState();
+  renderHardwareFilters(state);
 
   fillSelect("f-scenario", "scenario", state, rows);
   fillSelect("f-variant", "variant", state, rows);

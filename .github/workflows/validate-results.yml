@@ -19,6 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Test filename validation and hardware filters
+        run: |
+          python3 -m unittest discover -s tests -v
+          node --test tests/dashboard-hardware.test.cjs
+
       - name: Validate result files
         run: python3 validate-results.py
 

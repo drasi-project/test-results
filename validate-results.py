@@ -38,7 +38,9 @@ RUN_ID_RE = re.compile(r"^[0-9]+$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 # results/YYYY/MM/DD/<scenario>__<variant>__<run_id>.json
-FILENAME_RE = re.compile(r"^([a-z0-9_]+)__([a-z0-9_]+)__([0-9]+)\.json$")
+FILENAME_RE = re.compile(
+    r"^([a-z0-9_]+?)__([a-z0-9_]+?)__(?:(azure-ephemeral-[A-Za-z0-9_-]+)__)?([0-9]+)\.json$"
+)
 
 
 class Report:
@@ -189,19 +191,23 @@ def validate_file(rep, path, rel):
         return
 
     parts = rel.parts
-    expected_scenario = expected_variant = expected_run_id = None
+    folder_runner = None
+    if len(parts) == 6 and parts[:2] == ("results", "ubuntu-latest"):
+        folder_runner = parts[1]
+        parts = (parts[0], *parts[2:])
+    expected_scenario = expected_variant = expected_runner = expected_run_id = None
     if len(parts) == 5 and parts[0] == "results":
         _, year, month, day, filename = parts
         match = FILENAME_RE.match(filename)
         if not match:
-            rep.error(rel, "filename must be <scenario>__<variant>__<run_id>.json")
+            rep.error(rel, "filename must be <scenario>__<variant>__[<azure-profile>__]<run_id>.json")
         else:
-            expected_scenario, expected_variant, expected_run_id = match.groups()
+            expected_scenario, expected_variant, expected_runner, expected_run_id = match.groups()
         for value, field, width in ((year, "year", 4), (month, "month", 2), (day, "day", 2)):
             if not (value.isdigit() and len(value) == width):
                 rep.error(rel, f"path {field} segment {value!r} is malformed")
     else:
-        rep.error(rel, "results files must live at results/YYYY/MM/DD/<file>.json")
+        rep.error(rel, "results files must live at results/[ubuntu-latest/]YYYY/MM/DD/<file>.json")
 
     version = data.get("schema_version")
     if version not in SCHEMA_VERSIONS:
@@ -209,6 +215,12 @@ def validate_file(rep, path, rel):
         return
 
     started = validate_run(rep, rel, data.get("run"), expected_run_id)
+    if folder_runner and isinstance(data.get("run"), dict):
+        if data["run"].get("runner") != folder_runner:
+            rep.error(rel, f"run.runner disagrees with folder {folder_runner!r}")
+    if expected_runner and isinstance(data.get("run"), dict):
+        if data["run"].get("runner") != expected_runner:
+            rep.error(rel, f"run.runner disagrees with filename {expected_runner!r}")
 
     # The date directory must agree with the run timestamp, or the file is
     # invisible to any date-range query.
