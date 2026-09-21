@@ -18,12 +18,21 @@ This repo only *stores and visualizes*. It never runs tests.
 - Visualize them without operating any infrastructure — GitHub Actions builds
   the site, GitHub Pages serves it.
 - Compare runs and watch trends: throughput and duration over time, filtered
-  by scenario, variant, target, transport, or reaction.
+  by scenario, variant, target, transport, reaction, or VM SKU.
+
+The dashboard defaults to `Standard_D4s_v6`. The **VM SKU** checkboxes include
+or exclude `Standard_D4s_v3`, `Standard_F4as_v7`, **GitHub ubuntu-latest**, and
+other hardware found in the data. GitHub results retain the `ubuntu-latest`
+runner identifier and are not shown as v6 results.
+Selections are preserved in shared URLs. **Reset** restores the v6 default;
+**Clear all** includes all hardware. Charts separate full runner profiles, so
+different SKUs or disk configurations never share a trend line.
 
 ## Layout
 
 ```
-results/YYYY/MM/DD/<scenario>__<variant>__<run_id>.json   # one file per CI job
+results/YYYY/MM/DD/<scenario>__<variant>__[<azure-profile>__]<run_id>.json
+results/ubuntu-latest/YYYY/MM/DD/<scenario>__<variant>__<run_id>.json
 scenarios/<scenario>/template.json                        # display metadata
 generate-results.py                                       # results/ -> data.generated.js
 validate-results.py                                       # schema gate (run in CI)
@@ -34,11 +43,17 @@ tools/backfill-from-artifacts.py                          # artifacts -> result 
 One file per CI job, and files are never edited after they land. Because each
 job writes its own distinct path, two jobs can never touch the same file.
 
-The date leads the path so a date-range query only has to look at the relevant
-directories, and so old years could be archived later without disturbing
-anything else. Dimensions that will grow over time (index config, query
-complexity, workload params) live *inside* the JSON, not in the path — adding
-one must not change the path grammar or break existing readers.
+Results use date directories, optionally within the `ubuntu-latest` runner
+folder, so old years can be archived without disturbing anything else.
+Dimensions that will grow over time (index config, query
+complexity, workload params) live *inside* the JSON. The optional Azure profile
+in the path distinguishes hardware jobs sharing the same workflow run ID.
+Legacy filenames remain valid.
+
+Historical GitHub-hosted results live under `results/ubuntu-latest/` with their
+JSON contents unchanged. Records in that folder must have `run.runner` equal
+to `ubuntu-latest`. The generator reads both layouts recursively, and date-only
+paths remain accepted for compatibility with existing publishers.
 
 Display names live in `scenarios/<scenario>/template.json` and are joined in at
 build time, so they aren't copied into every result file.
@@ -108,6 +123,18 @@ author sees it, instead of turning this repo red.
 results/<YYYY>/<MM>/<DD>/<scenario>__<variant>__<run_id>.json
 ```
 
+Azure hardware matrix jobs use:
+
+```
+results/<YYYY>/<MM>/<DD>/<scenario>__<variant>__<azure-profile>__<run_id>.json
+```
+
+The profile must start with `azure-ephemeral-`, contain only ASCII letters,
+digits, underscores, and hyphens, and exactly match `run.runner`. For example:
+`building_comfort__drasi_lib__azure-ephemeral-Standard_F4as_v7-Premium_LRS-128gb__123.json`.
+No schema version change or new JSON field is required. Legacy filenames are
+still accepted for both Azure and non-Azure runners.
+
 using the UTC date of `run.started_at`. **`run_attempt` is deliberately not in
 the path** — `run_id` is stable across re-runs, so a re-run overwrites its own
 file instead of adding a duplicate datapoint. Skip the commit entirely when
@@ -161,6 +188,8 @@ better than a red E2E run that people learn to ignore.
 ## Working on this repo
 
 ```bash
+python3 -m unittest discover -s tests -v
+node --test tests/dashboard-hardware.test.cjs
 python3 validate-results.py          # check every result file
 python3 generate-results.py          # build data.generated.js
 python3 -m http.server 8000          # then open http://localhost:8000
