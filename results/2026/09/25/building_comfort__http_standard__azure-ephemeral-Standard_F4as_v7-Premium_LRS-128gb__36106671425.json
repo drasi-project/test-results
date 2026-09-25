@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "36106671425",
+    "run_attempt": 1,
+    "workflow": "building-comfort-azure.yml",
+    "trigger": "schedule",
+    "runner": "azure-ephemeral-Standard_F4as_v7-Premium_LRS-128gb",
+    "started_at": "2026-09-25T07:39:12Z",
+    "finished_at": "2026-09-25T07:51:31Z",
+    "url": "https://github.com/drasi-project/test-infra/actions/runs/36106671425"
+  },
+  "versions": {
+    "test_infra_sha": "81ef285a2ee0bee600928bebe22f429b6dafd0f7",
+    "drasi_server_version": "0.2.3",
+    "drasi_server_tag": "latest"
+  },
+  "dimensions": {
+    "scenario": "building_comfort",
+    "variant": "http_standard"
+  },
+  "status": "failure",
+  "determinism": "not_applicable",
+  "reactions": []
+}
