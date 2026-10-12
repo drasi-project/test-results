@@ -8,14 +8,14 @@ const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const script = html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 const logic = script.slice(0, script.indexOf('\nDIMS.forEach(dim => {'));
 
-function context(hash = "") {
+function context(hash = "", skus = ["Standard_D4s_v4", "Standard_D4s_v6", "Standard_F4as_v7"]) {
   const location = { hash, pathname: "/" };
   const sandbox = vm.createContext({
     URLSearchParams,
     location,
     history: { replaceState: (_state, _title, url) => { location.hash = url.startsWith("#") ? url : ""; } },
     document: { getElementById: () => ({}) },
-    data: ["Standard_D4s_v3", "Standard_D4s_v6", "Standard_F4as_v7"].map(sku => ({
+    data: skus.map(sku => ({
       runner: `azure-ephemeral-${sku}-Premium_LRS-128gb`,
       scenario: "building_comfort", variant: "drasi_lib", reaction: "building-comfort",
       ts: "2026-09-21T07:00:00Z",
@@ -32,11 +32,28 @@ test("default view includes only v6", () => {
 });
 
 test("shared SKU selection survives reload and separates series", () => {
-  const evaluate = context("#sku=Standard_D4s_v3,Standard_F4as_v7");
+  const evaluate = context("#sku=Standard_D4s_v4,Standard_F4as_v7");
   assert.equal(evaluate('applyFilters(rows, readState()).length'), 2);
   assert.equal(evaluate('groupSeries(applyFilters(rows, readState())).length'), 2);
   evaluate('writeState(readState())');
-  assert.equal(evaluate('readState().skus.join(",")'), "Standard_D4s_v3,Standard_F4as_v7");
+  assert.equal(evaluate('readState().skus.join(",")'), "Standard_D4s_v4,Standard_F4as_v7");
+});
+
+test("current SKUs are offered even without data", () => {
+  const evaluate = context("", []);
+  assert.deepEqual(
+    Array.from(evaluate("hardwareOptions")),
+    ["Standard_D4s_v4", "Standard_D4s_v6", "Standard_F4as_v7", "ubuntu-latest"],
+  );
+});
+
+test("historical SKUs remain selectable without being relabeled", () => {
+  const evaluate = context("#sku=Standard_D4s_v3", ["Standard_D4s_v3", "Standard_D4s_v4"]);
+  assert.equal(evaluate('hardwareOptions.includes("Standard_D4s_v3")'), true);
+  assert.equal(evaluate('applyFilters(rows, readState()).length'), 1);
+  assert.equal(evaluate('skuOf(applyFilters(rows, readState())[0])'), "Standard_D4s_v3");
+  evaluate('writeState(readState())');
+  assert.equal(evaluate('readState().skus.join(",")'), "Standard_D4s_v3");
 });
 
 test("excluding every SKU remains an empty selection", () => {

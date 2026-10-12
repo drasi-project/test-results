@@ -173,7 +173,7 @@ const rows = typeof data !== "undefined" && Array.isArray(data) ? data : [];
 const templates = typeof meta !== "undefined" && meta ? meta : {};
 const tooltip = document.getElementById("tooltip");
 const DEFAULT_SKU = "Standard_D4s_v6";
-const KNOWN_SKUS = ["Standard_D4s_v3", DEFAULT_SKU, "Standard_F4as_v7", "ubuntu-latest"];
+const KNOWN_SKUS = ["Standard_D4s_v4", DEFAULT_SKU, "Standard_F4as_v7", "ubuntu-latest"];
 
 function skuLabel(sku) {
   return sku === "ubuntu-latest" ? "GitHub ubuntu-latest" : sku;

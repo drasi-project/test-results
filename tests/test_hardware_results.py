@@ -47,10 +47,64 @@ class HardwareResultsTest(unittest.TestCase):
         self.assertTrue(any("path date" in error for error in errors))
 
     def test_hardware_profiles(self):
-        for sku in ("Standard_D4s_v3", "Standard_D4s_v6", "Standard_F4as_v7"):
+        for sku in ("Standard_D4s_v3", "Standard_D4s_v4", "Standard_D4s_v6", "Standard_F4as_v7"):
             with self.subTest(sku=sku):
                 runner = f"azure-ephemeral-{sku}-Premium_LRS-128gb"
                 self.assertEqual(self.validate(f"building_comfort__drasi_lib__{runner}__123.json", runner), [])
+
+    def test_sku_folders(self):
+        for sku in ("Standard_D4s_v3", "Standard_D4s_v4", "Standard_D4s_v6", "Standard_F4as_v7"):
+            for disk in ("Premium_LRS-128gb", "StandardSSD_LRS-256gb"):
+                with self.subTest(sku=sku, disk=disk):
+                    runner = f"azure-ephemeral-{sku}-{disk}"
+                    self.assertEqual(self.validate(
+                        f"building_comfort__drasi_lib__{runner}__123.json",
+                        runner, f"results/{sku}/2026/09/21",
+                    ), [])
+
+    def test_sku_folder_mismatch(self):
+        for runner in (
+            "ubuntu-latest",
+            "Standard_D4s_v4",
+            "azure-ephemeral-Standard_D4s_v6-Premium_LRS-128gb",
+            "azure-ephemeral-Standard_D4s_v40-Premium_LRS-128gb",
+            None,
+        ):
+            with self.subTest(runner=runner):
+                errors = self.validate(
+                    "building_comfort__drasi_lib__123.json",
+                    runner, "results/Standard_D4s_v4/2026/09/21",
+                )
+                self.assertTrue(any("run.runner disagrees with folder" in error for error in errors))
+
+    def test_sku_folder_date_mismatch(self):
+        errors = self.validate(
+            "building_comfort__drasi_lib__123.json",
+            "azure-ephemeral-Standard_D4s_v4", "results/Standard_D4s_v4/2026/09/20",
+        )
+        self.assertTrue(any("path date" in error for error in errors))
+
+    def test_sku_folder_filename_mismatch(self):
+        errors = self.validate(
+            "building_comfort__drasi_lib__azure-ephemeral-Standard_D4s_v6__123.json",
+            "azure-ephemeral-Standard_D4s_v4", "results/Standard_D4s_v4/2026/09/21",
+        )
+        self.assertTrue(any("run.runner disagrees with filename" in error for error in errors))
+
+    def test_invalid_runner_folder(self):
+        for folder in ("Standard_D4s_v4!", "Standard_", "unknown", "Standard_D4s_v4-extra"):
+            with self.subTest(folder=folder):
+                errors = self.validate(
+                    "building_comfort__drasi_lib__123.json",
+                    "azure-ephemeral-Standard_D4s_v4", f"results/{folder}/2026/09/21",
+                )
+                self.assertTrue(any("results files must live at" in error for error in errors))
+
+    def test_legacy_filename_in_sku_folder(self):
+        self.assertEqual(self.validate(
+            "building_comfort__drasi_lib__123.json",
+            "azure-ephemeral-Standard_D4s_v4", "results/Standard_D4s_v4/2026/09/21",
+        ), [])
 
     def test_legacy_filename(self):
         self.assertEqual(self.validate("building_comfort__drasi_lib__123.json", "ubuntu-latest"), [])

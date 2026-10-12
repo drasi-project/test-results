@@ -21,7 +21,7 @@ This repo only *stores and visualizes*. It never runs tests.
   by scenario, variant, target, transport, reaction, or VM SKU.
 
 The dashboard defaults to `Standard_D4s_v6`. The **VM SKU** checkboxes include
-or exclude `Standard_D4s_v3`, `Standard_F4as_v7`, **GitHub ubuntu-latest**, and
+or exclude `Standard_D4s_v4`, `Standard_F4as_v7`, **GitHub ubuntu-latest**, and
 other hardware found in the data. GitHub results retain the `ubuntu-latest`
 runner identifier and are not shown as v6 results.
 Selections are preserved in shared URLs. **Reset** restores the v6 default;
@@ -31,6 +31,7 @@ different SKUs or disk configurations never share a trend line.
 ## Layout
 
 ```
+results/<sku>/YYYY/MM/DD/<scenario>__<variant>__<azure-profile>__<run_id>.json
 results/YYYY/MM/DD/<scenario>__<variant>__[<azure-profile>__]<run_id>.json
 results/ubuntu-latest/YYYY/MM/DD/<scenario>__<variant>__<run_id>.json
 scenarios/<scenario>/template.json                        # display metadata
@@ -43,16 +44,23 @@ tools/backfill-from-artifacts.py                          # artifacts -> result 
 One file per CI job, and files are never edited after they land. Because each
 job writes its own distinct path, two jobs can never touch the same file.
 
-Results use date directories, optionally within the `ubuntu-latest` runner
-folder, so old years can be archived without disturbing anything else.
+Results use date directories, optionally within an Azure SKU or the
+`ubuntu-latest` runner folder, so old years can be archived without disturbing
+anything else.
 Dimensions that will grow over time (index config, query
 complexity, workload params) live *inside* the JSON. The optional Azure profile
 in the path distinguishes hardware jobs sharing the same workflow run ID.
 Legacy filenames remain valid.
 
+Azure results are organized under `results/Standard_D4s_v4/`,
+`results/Standard_D4s_v6/`, and `results/Standard_F4as_v7/`. The SKU folder must
+match the SKU in `run.runner`; the full runner profile remains in the filename
+to distinguish disk configurations. Moving historical records into these
+folders does not change their JSON or relabel the hardware they ran on.
+
 Historical GitHub-hosted results live under `results/ubuntu-latest/` with their
 JSON contents unchanged. Records in that folder must have `run.runner` equal
-to `ubuntu-latest`. The generator reads both layouts recursively, and date-only
+to `ubuntu-latest`. The generator reads all layouts recursively, and date-only
 paths remain accepted for compatibility with existing publishers.
 
 Display names live in `scenarios/<scenario>/template.json` and are joined in at
@@ -123,17 +131,19 @@ author sees it, instead of turning this repo red.
 results/<YYYY>/<MM>/<DD>/<scenario>__<variant>__<run_id>.json
 ```
 
-Azure hardware matrix jobs use:
+Azure hardware matrix results use SKU folders:
 
 ```
-results/<YYYY>/<MM>/<DD>/<scenario>__<variant>__<azure-profile>__<run_id>.json
+results/<sku>/<YYYY>/<MM>/<DD>/<scenario>__<variant>__<azure-profile>__<run_id>.json
 ```
 
 The profile must start with `azure-ephemeral-`, contain only ASCII letters,
 digits, underscores, and hyphens, and exactly match `run.runner`. For example:
 `building_comfort__drasi_lib__azure-ephemeral-Standard_F4as_v7-Premium_LRS-128gb__123.json`.
-No schema version change or new JSON field is required. Legacy filenames are
-still accepted for both Azure and non-Azure runners.
+The `<sku>` folder (for example, `Standard_F4as_v7`) must match the Azure
+profile's SKU. No schema version change or new JSON field is required.
+Legacy filenames and date-only Azure paths remain accepted for compatibility
+with existing publishers.
 
 using the UTC date of `run.started_at`. **`run_attempt` is deliberately not in
 the path** — `run_id` is stable across re-runs, so a re-run overwrites its own
@@ -201,9 +211,35 @@ run.
 
 ### Backfilling from existing runs
 
-Until the test-infra push step exists, results can be backfilled from artifacts
+Results missing from the published history can be backfilled from artifacts
 that are still on GitHub. Artifacts expire after 90 days, so this only reaches
 back that far.
+
+For Azure runs that already have `summary-building_comfort-azure-<sku>`
+artifacts, download those summaries and preserve their JSON unchanged. Use
+the SKU, UTC date, scenario, variant, full runner profile, and run ID from each
+record to construct the path above. Do not change `run.started_at` or
+`run.trigger` to make a manually triggered run appear scheduled, and keep
+earlier runs as separate records.
+
+The 2026-10-12 backfill contains three successful variants (`drasi_lib`,
+`http_standard`, and `grpc_standard`) per SKU, with passing determinism:
+
+| SKU | Source workflow run |
+|---|---|
+| `Standard_D4s_v4` | [36 (38300165184)](https://github.com/drasi-project/test-infra/actions/runs/38300165184) |
+| `Standard_D4s_v6` | [37 (38304487387)](https://github.com/drasi-project/test-infra/actions/runs/38304487387) |
+| `Standard_F4as_v7` | [38 (38304513281)](https://github.com/drasi-project/test-infra/actions/runs/38304513281) |
+
+These manual runs skipped the scheduled-only publish job. Their nine summaries
+are stored alongside the earlier results for that date; no adaptive variant
+results were produced by these runs.
+
+The HTTP/gRPC summaries omit optional `target` and `transport` fields, so
+`--strict` reports metadata warnings. The dashboard resolves both fields from
+the existing variant templates; the source summaries remain unchanged.
+
+For older non-Azure runs without summary artifacts, use the backfill tool:
 
 ```bash
 gh run download <run_id> --repo drasi-project/test-infra --dir /tmp/arts/<run_id>

@@ -37,7 +37,8 @@ NAME_RE = re.compile(r"^[a-z0-9_]+$")
 RUN_ID_RE = re.compile(r"^[0-9]+$")
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
-# results/YYYY/MM/DD/<scenario>__<variant>__<run_id>.json
+SKU_RE = re.compile(r"Standard_[A-Za-z0-9_]+")
+# results/[<sku>|ubuntu-latest/]YYYY/MM/DD/<scenario>__<variant>__[<azure-profile>__]<run_id>.json
 FILENAME_RE = re.compile(
     r"^([a-z0-9_]+?)__([a-z0-9_]+?)__(?:(azure-ephemeral-[A-Za-z0-9_-]+)__)?([0-9]+)\.json$"
 )
@@ -192,7 +193,9 @@ def validate_file(rep, path, rel):
 
     parts = rel.parts
     folder_runner = None
-    if len(parts) == 6 and parts[:2] == ("results", "ubuntu-latest"):
+    if len(parts) == 6 and parts[0] == "results" and (
+        parts[1] == "ubuntu-latest" or SKU_RE.fullmatch(parts[1])
+    ):
         folder_runner = parts[1]
         parts = (parts[0], *parts[2:])
     expected_scenario = expected_variant = expected_runner = expected_run_id = None
@@ -207,7 +210,7 @@ def validate_file(rep, path, rel):
             if not (value.isdigit() and len(value) == width):
                 rep.error(rel, f"path {field} segment {value!r} is malformed")
     else:
-        rep.error(rel, "results files must live at results/[ubuntu-latest/]YYYY/MM/DD/<file>.json")
+        rep.error(rel, "results files must live at results/[<sku>|ubuntu-latest/]YYYY/MM/DD/<file>.json")
 
     version = data.get("schema_version")
     if version not in SCHEMA_VERSIONS:
@@ -216,7 +219,15 @@ def validate_file(rep, path, rel):
 
     started = validate_run(rep, rel, data.get("run"), expected_run_id)
     if folder_runner and isinstance(data.get("run"), dict):
-        if data["run"].get("runner") != folder_runner:
+        runner = data["run"].get("runner")
+        if folder_runner == "ubuntu-latest":
+            matches_folder = runner == folder_runner
+        else:
+            prefix = f"azure-ephemeral-{folder_runner}"
+            matches_folder = isinstance(runner, str) and (
+                runner == prefix or runner.startswith(prefix + "-")
+            )
+        if not matches_folder:
             rep.error(rel, f"run.runner disagrees with folder {folder_runner!r}")
     if expected_runner and isinstance(data.get("run"), dict):
         if data["run"].get("runner") != expected_runner:
