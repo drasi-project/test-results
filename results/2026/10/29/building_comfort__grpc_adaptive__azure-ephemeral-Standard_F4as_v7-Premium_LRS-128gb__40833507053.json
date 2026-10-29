@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "run": {
+    "run_id": "40833507053",
+    "run_attempt": 1,
+    "workflow": "building-comfort-azure.yml",
+    "trigger": "schedule",
+    "runner": "azure-ephemeral-Standard_F4as_v7-Premium_LRS-128gb",
+    "started_at": "2026-10-29T07:38:20Z",
+    "finished_at": "2026-10-29T07:51:39Z",
+    "url": "https://github.com/drasi-project/test-infra/actions/runs/40833507053"
+  },
+  "versions": {
+    "test_infra_sha": "fcd23ea15a2666b10418dea243508c790defeaf1",
+    "drasi_server_version": "0.2.4",
+    "drasi_server_tag": "latest"
+  },
+  "dimensions": {
+    "scenario": "building_comfort",
+    "variant": "grpc_adaptive"
+  },
+  "status": "success",
+  "determinism": "pass",
+  "reactions": [
+    {
+      "reaction_id": "building-comfort-floor-agg",
+      "status": "Stopped",
+      "records": 49860,
+      "duration_s": 5.95,
+      "records_per_sec": 8376.4,
+      "sha256": "91c222eafe3df5c1ada87376bbf8f30670de91035510da4213d05d941c095990",
+      "determinism": "pass"
+    },
+    {
+      "reaction_id": "building-comfort",
+      "status": "Stopped",
+      "records": 99981,
+      "duration_s": 5.94,
+      "records_per_sec": 16818.7,
+      "sha256": "4e5d57a4b349361bf79bf0c97633a556879958a283f864ee32c36e6e2ab619c6",
+      "determinism": "pass"
+    }
+  ],
+  "totals": {
+    "records": 149841,
+    "duration_s": 5.96,
+    "records_per_sec": 25157.6
+  }
+}
