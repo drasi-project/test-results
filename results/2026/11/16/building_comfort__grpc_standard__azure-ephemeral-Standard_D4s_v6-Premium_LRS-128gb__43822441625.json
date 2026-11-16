@@ -2,12 +2,12 @@
   "schema_version": 1,
   "run": {
     "run_id": "43822441625",
-    "run_attempt": 1,
+    "run_attempt": 2,
     "workflow": "building-comfort-azure.yml",
     "trigger": "schedule",
     "runner": "azure-ephemeral-Standard_D4s_v6-Premium_LRS-128gb",
-    "started_at": "2026-11-16T07:31:14Z",
-    "finished_at": "2026-11-16T08:14:07Z",
+    "started_at": "2026-11-16T17:57:17Z",
+    "finished_at": "2026-11-16T18:10:27Z",
     "url": "https://github.com/drasi-project/test-infra/actions/runs/43822441625"
   },
   "versions": {
@@ -19,23 +19,31 @@
     "scenario": "building_comfort",
     "variant": "grpc_standard"
   },
-  "status": "failure",
-  "determinism": "not_applicable",
+  "status": "success",
+  "determinism": "pass",
   "reactions": [
     {
       "reaction_id": "building-comfort-floor-agg",
-      "status": "Running",
-      "records": 11255,
-      "determinism": "not_applicable"
+      "status": "Stopped",
+      "records": 49860,
+      "duration_s": 27.91,
+      "records_per_sec": 1786.3,
+      "sha256": "91c222eafe3df5c1ada87376bbf8f30670de91035510da4213d05d941c095990",
+      "determinism": "pass"
     },
     {
       "reaction_id": "building-comfort",
-      "status": "Running",
-      "records": 0,
-      "determinism": "not_applicable"
+      "status": "Stopped",
+      "records": 99981,
+      "duration_s": 27.93,
+      "records_per_sec": 3580.1,
+      "sha256": "4e5d57a4b349361bf79bf0c97633a556879958a283f864ee32c36e6e2ab619c6",
+      "determinism": "pass"
     }
   ],
   "totals": {
-    "records": 11255
+    "records": 149841,
+    "duration_s": 27.94,
+    "records_per_sec": 5363.7
   }
 }
